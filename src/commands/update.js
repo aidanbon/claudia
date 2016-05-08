@@ -15,7 +15,7 @@ var Promise = require('bluebird'),
 	loadConfig = require('../util/loadconfig');
 module.exports = function update(options) {
 	'use strict';
-	var lambda, apiGateway, lambdaConfig, apiConfig, updateResult,
+	var lambda, apiGateway, lambdaConfig, apiConfig, updateResult, tempDir,
 		updateLambda = function (fileContents) {
 			return lambda.updateFunctionCodePromise({FunctionName: lambdaConfig.name, ZipFile: fileContents, Publish: true});
 		}, functionConfig;
@@ -39,6 +39,7 @@ module.exports = function update(options) {
 	}).then(function () {
 		return collectFiles(options.source);
 	}).then(function (dir) {
+		tempDir = dir;
 		return validatePackage(dir, functionConfig.Handler, apiConfig && apiConfig.module);
 	}).then(zipdir)
 	.then(readFile)
@@ -53,7 +54,7 @@ module.exports = function update(options) {
 	}).then(function () {
 		var apiModule, apiDef, alias = options.version || 'latest';
 		if (apiConfig && apiConfig.id && apiConfig.module) {
-			apiModule = require(path.join(options.source, apiConfig.module));
+			apiModule = require(path.join(tempDir, apiConfig.module));
 			apiDef = apiModule.apiConfig();
 			updateResult.url = apiGWUrl(apiConfig.id, lambdaConfig.region, alias);
 			return rebuildWebApi(lambdaConfig.name, alias, apiConfig.id, apiDef, lambdaConfig.region, options.verbose);

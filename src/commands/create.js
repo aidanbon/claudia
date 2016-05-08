@@ -107,7 +107,7 @@ module.exports = function create(options) {
 			});
 		},
 		createWebApi = function (lambdaMetadata) {
-			var apiModule = require(path.join(options.source, options['api-module'])),
+			var apiModule = require(path.join(tempDir, options['api-module'])),
 				apiGateway = retriableWrap('apiGateway', Promise.promisifyAll(new aws.APIGateway({region: options.region}))),
 				apiConfig = apiModule && apiModule.apiConfig && apiModule.apiConfig();
 			if (!apiConfig) {
@@ -179,6 +179,7 @@ module.exports = function create(options) {
 			});
 		},
 		packageArchive,
+		tempDir,
 		functionDesc,
 		functionName;
 	if (validationError()) {
@@ -190,6 +191,7 @@ module.exports = function create(options) {
 	}).then(function () {
 		return collectFiles(source);
 	}).then(function (dir) {
+		tempDir = dir;
 		return validatePackage(dir, options.handler, options['api-module']);
 	}).then(zipdir).then(function (zipFile) {
 		packageArchive = zipFile;
