@@ -13,7 +13,14 @@ var Promise = require('bluebird'),
 	rebuildWebApi = require('../tasks/rebuild-web-api'),
 	readjson = require('../util/readjson'),
 	apiGWUrl = require('../util/apigw-url'),
-	fs = Promise.promisifyAll(require('fs'));
+	fs = Promise.promisifyAll(require('fs')),
+	Ora = require('ora'),
+	spinner = new Ora({
+		spinner: 'simpleDotsScrolling',
+		text: 'start',
+		color: 'cyan'
+	});
+
 module.exports = function create(options) {
 	'use strict';
 	var source = (options && options.source) || shell.pwd(),
@@ -178,6 +185,7 @@ module.exports = function create(options) {
 			if (lambdaMetaData.api) {
 				config.api =  lambdaMetaData.api;
 			}
+			spinner.stop();
 			return config;
 		},
 		loadRole = function (functionName) {
@@ -205,32 +213,40 @@ module.exports = function create(options) {
 	if (validationError()) {
 		return Promise.reject(validationError());
 	}
+	spinner.start();
 	return getPackageInfo().then(function (packageInfo) {
 		functionName = packageInfo.name;
 		functionDesc = packageInfo.description;
 	}).then(function () {
+		spinner.text = 'collect files';
 		return collectFiles(source);
 	}).then(function (dir) {
+		spinner.text = 'validate package';
 		return validatePackage(dir, options.handler, options['api-module']);
 	}).then(zipdir).then(function (zipFile) {
 		packageArchive = zipFile;
 	}).then(function () {
+		spinner.text = 'load IAM role';
 		return loadRole(functionName);
 	}).then(function (result) {
 		roleMetadata = result;
 	}).then(function () {
+		spinner.text = 'add IAM policy';
 		return addPolicy('log-writer', roleMetadata.Role.RoleName);
 	}).then(function () {
 		if (options.policies) {
+			spinner.text = 'add extra policies';
 			return addExtraPolicies();
 		}
 	}).then(function () {
 		return fs.readFileAsync(packageArchive);
 	}).then(function (fileContents) {
+		spinner.text = 'create Lambda';
 		return createLambda(functionName, functionDesc, fileContents, roleMetadata.Role.Arn, 10);
 	})
 	.then(function (lambdaMetadata) {
 		if (options['api-module']) {
+			spinner.text = 'create web API';
 			return createWebApi(lambdaMetadata);
 		} else {
 			return lambdaMetadata;
